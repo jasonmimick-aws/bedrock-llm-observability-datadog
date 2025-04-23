@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for LLM Observability Workshop with SageMaker and Datadog'
+
+Parameters:
+  NotebookInstanceType:
+    Description: SageMaker Notebook instance type
+    Type: String
+    Default: ml.t3.medium
+    AllowedValues:
+      - ml.t3.medium
+      - ml.t3.large
+      - ml.m5.large
+      - ml.m5.xlarge
+    ConstraintDescription: Must be a valid SageMaker instance type.
+
+  DatadogApiKey:
+    Description: Datadog API Key
+    Type: String
+    NoEcho: true
+
+  DatadogSite:
+    Description: Datadog Site (e.g., datadoghq.com, datadoghq.eu)
+    Type: String
+    Default: datadoghq.com
+
+  GitHubRepo:
+    Description: GitHub repository URL for the LLM Observability project
+    Type: String
+    Default: https://github.com/yourusername/llm-observability-datadog.git
+
+  MlAppName:
+    Description: Name for the ML application in Datadog
+    Type: String
+    Default: onboarding-quickstart
+
+Resources:
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      Policies:
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:ListFoundationModels
+                Resource: '*'
+
+  NotebookLifecycleConfig:
+    Type: AWS::SageMaker::NotebookInstanceLifecycleConfig
+    Properties:
+      OnStart:
+        - Content:
+            Fn::Base64: !Sub |
+              #!/bin/bash
+              set -e
+              
+              # Set up environment variables
+              echo "export DD_API_KEY=${DatadogApiKey}" >> /etc/profile.d/datadog.sh
+              echo "export DD_SITE=${DatadogSite}" >> /etc/profile.d/datadog.sh
+              echo "export DD_LLMOBS_AGENTLESS_ENABLED=1" >> /etc/profile.d/datadog.sh
+              echo "export DD_LLMOBS_ML_APP=${MlAppName}" >> /etc/profile.d/datadog.sh
+              
+              # Clone the repository
+              sudo -u ec2-user -i <<'EOF'
+              cd /home/ec2-user/SageMaker
+              git clone ${GitHubRepo} llm-observability-datadog
+              cd llm-observability-datadog
+              pip install -r requirements.txt
+              EOF
+              
+              # Create a welcome message
+              sudo -u ec2-user -i <<'EOF'
+              cat > /home/ec2-user/SageMaker/WELCOME.md << 'EOT'
+              # Welcome to the LLM Observability Workshop!
+              
+              This SageMaker notebook instance has been pre-configured with:
+              - Amazon Bedrock access
+              - Datadog integration
+              - All required dependencies
+              
+              ## Getting Started
+              
+              1. Navigate to the `llm-observability-datadog` directory
+              2. Open the notebooks in order, starting with `1-llm-span.ipynb`
+              3. Follow the instructions in each notebook
+              
+              Happy learning!
+              EOT
+              EOF
+
+  NotebookInstance:
+    Type: AWS::SageMaker::NotebookInstance
+    Properties:
+      InstanceType: !Ref NotebookInstanceType
+      RoleArn: !GetAtt SageMakerExecutionRole.Arn
+      LifecycleConfigName: !GetAtt NotebookLifecycleConfig.NotebookInstanceLifecycleConfigName
+      DirectInternetAccess: Enabled
+      VolumeSizeInGB: 50
+      Tags:
+        - Key: Project
+          Value: LLMObservabilityWorkshop
+
+Outputs:
+  NotebookInstanceName:
+    Description: Name of the SageMaker Notebook Instance
+    Value: !Ref NotebookInstance
+  
+  NotebookInstanceUrl:
+    Description: URL to access the SageMaker Notebook Instance
+    Value: !Sub https://console.aws.amazon.com/sagemaker/home?region=${AWS::Region}#/notebook-instances/openNotebook/${NotebookInstance}?view=classic
+  
+  SageMakerRoleArn:
+    Description: ARN of the IAM Role used by SageMaker
+    Value: !GetAtt SageMakerExecutionRole.Arn

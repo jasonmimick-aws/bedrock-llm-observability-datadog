@@ -4,13 +4,24 @@ These notebooks introduce you to Datadog's [LLM Observability Python SDK](https:
 
 For a detailed instrumentation guide, see [Trace an LLM Application](https://docs.datadoghq.com/tracing/llm_observability/trace_an_llm_application/).
 
+## Deployment Options
+
+This project supports two deployment paths:
+
+1. **Local Development**: Run the notebooks on your local machine
+2. **AWS SageMaker**: Deploy and run in a managed AWS environment
+
+For detailed deployment instructions, workshop guides, and production considerations, see the [deployment documentation](./deployment/README.md).
+
+If you're interested in how we implemented the AWS SageMaker deployment option following Well-Architected best practices, check out our [implementation guide](./deployment/IMPLEMENTATION.md).
+
 ## Prerequisites
 
 - [A Datadog API key](https://docs.datadoghq.com/account_management/api-app-keys)
 - [AWS credentials configured for Amazon Bedrock access](https://docs.aws.amazon.com/bedrock/latest/userguide/setting-up.html)
 - Access to Amazon Bedrock models (Claude models are used in the examples)
 
-## Setup
+## Quick Setup (Local Development)
 
 #### 1. Create and activate your virtual environment:
 
@@ -64,9 +75,29 @@ uv pip install -r requirements.txt
 pip install -r requirements.txt
 ```
 
-#### 4. Launch Jupyter notebooks
+#### 5. Launch Jupyter notebooks
 
 You can either start Jupyter on the command line (`jupyter notebook`) to use the web interface, or open your notebook from your preferred code editor (for example, VS Code) and run it there.
+
+## Quick Setup (AWS SageMaker)
+
+For a one-click deployment to SageMaker:
+
+```bash
+# Make the setup script executable
+chmod +x deployment/setup.sh
+
+# Run the setup script with SageMaker option
+./deployment/setup.sh --sagemaker
+```
+
+This will:
+1. Create a SageMaker notebook instance with appropriate IAM permissions
+2. Configure Datadog environment variables
+3. Clone this repository to the notebook instance
+4. Install all required dependencies
+
+Once deployed, access your notebook from the AWS SageMaker console.
 
 ## Notebooks
 
